@@ -1,0 +1,33 @@
+services:
+  neo4j:
+    image: neo4j:2026.04.0
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-graphdatabase}
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "cypher-shell -u neo4j -p '${NEO4J_PASSWORD:-graphdatabase}' 'RETURN 1;'",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+    environment:
+      NEO4J_URI: neo4j://neo4j:7687
+      USERNAME: neo4j
+      PASSWORD: ${NEO4J_PASSWORD:-graphdatabase}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+volumes:
+  neo4j_data:
