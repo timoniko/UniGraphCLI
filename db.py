@@ -81,9 +81,24 @@ def add_node(label: labels, payload: dict):
 
 def delete_node_by_id(node_id: str):
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
-        query = f"MATCH (n) WHERE elementId(n)=$nodeId DETACH DELETE n"
-        driver.execute_query(query, nodeId=node_id)
-        return {"deleted": True}
+        query = """
+        MATCH (n)
+        WHERE elementId(n) = $node_id
+        WITH n, labels(n) AS labels, properties(n) AS properties
+        DETACH DELETE n
+        RETURN labels, properties
+        """
+        records, _, _ = driver.execute_query(query, node_id=node_id)
+        return {
+            "deleted_count": len(records),
+            "deleted_objects": [
+                {
+                    "labels": record["labels"],
+                    "properties": dict(record["properties"]),
+                }
+                for record in records
+            ],
+        }
 
 
 def delete_node_by_properties(label: labels, properties: dict):
@@ -92,9 +107,11 @@ def delete_node_by_properties(label: labels, properties: dict):
 
     query = f"""
     MATCH (n:{label})
-    WHERE all(key IN keys($properties) WHERE n[key] = $properties[key])
+    WHERE all(key IN keys($properties)
+              WHERE toString(n[key]) = toString($properties[key]))
+    WITH n, labels(n) AS labels, properties(n) AS properties
     DETACH DELETE n
-    RETURN count(n) AS deleted_count
+    RETURN labels, properties
     """
 
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
@@ -105,7 +122,14 @@ def delete_node_by_properties(label: labels, properties: dict):
         )
 
         return {
-            "deleted_count": records[0]["deleted_count"]
+            "deleted_count": len(records),
+            "deleted_objects": [
+                {
+                    "labels": record["labels"],
+                    "properties": dict(record["properties"]),
+                }
+                for record in records
+            ],
         }
 
 

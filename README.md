@@ -25,7 +25,7 @@ The basic-actions menu supports:
 
 The additional-actions menu supports:
 
-- Viewing notifications created when nodes are deleted by their properties.
+- Viewing notifications created after successful node deletions.
 - Adding, listing, or removing participants for a lecture.
 - Searching lectures by lecture ID, topic, ECTS count, or professor.
 - Assigning a grade to a student registered for an exam.

@@ -155,14 +155,8 @@ def construct_node_payload_with_action(node_type, action: Literal["add", "delete
                 return created
 
         else:
-            reason = questionary.text("Whats the reason of deletion?").ask()
             result = delete_node_by_properties(node_type, payload)
-            deleted_count = result["deleted_count"]
-            console.print(
-                f"\n[green]Deleted {deleted_count} {node_type} node(s)! ({summary})[/green]"
-            )
-            add_delete_notification(deleted_object={"type": node_type,
-                                                    "content": payload}, reason=reason)
+            handle_node_deletion_result(result)
 
 
 def proceed_with_node_adding():
@@ -176,13 +170,35 @@ def proceed_with_node_deletion():
     knows_id = questionary.select("Do you know node's ID?", choices=['Yes', 'No']).ask()
     if knows_id == 'Yes':
         node_id = questionary.text("What is node's id?", validate=valid_field).ask()
-        delete_node_by_id(node_id)
-        print(f"Successfully deleted node with id {node_id}")
+        result = delete_node_by_id(node_id)
+        handle_node_deletion_result(result)
     else:
         node_type = questionary.select("What to delete", choices=node_types).ask()
         if not node_type:
             return
         construct_node_payload_with_action(node_type, action="delete")
+
+
+def handle_node_deletion_result(result):
+    deleted_count = result["deleted_count"]
+    if not deleted_count:
+        console.print("\n[yellow]No matching node found. Nothing was deleted.[/yellow]")
+        return
+
+    reason = questionary.text(
+        "What's the reason for deletion?",
+        validate=valid_field,
+    ).ask()
+    add_delete_notification(
+        deleted_object={
+            "deleted_count": deleted_count,
+            "objects": result["deleted_objects"],
+        },
+        reason=reason,
+    )
+    console.print(
+        f"\n[green]Deleted {deleted_count} node(s) and created a notification.[/green]"
+    )
 
 
 def proceed_with_database_reset():
@@ -620,7 +636,6 @@ def get_internal_id_based_on_candidates(mode: Literal["first", "second"]):
         return str(internal_id) if internal_id else None
     else:
         return None
-
 
 
 
