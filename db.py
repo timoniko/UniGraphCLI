@@ -414,6 +414,21 @@ def search_lecture(search_string: str):
             for r in records
         ]
 
+def person_exists(person_name: str):
+    with GraphDatabase.driver(uri, auth=AUTH) as driver:
+        query = """
+                MATCH (person)
+                WHERE (person:Student OR person:Professor)
+                  AND toString(person.name) = $person_name
+                RETURN count(person) > 0 AS person_exists
+                """
+        records, _, _ = driver.execute_query(
+            query,
+            person_name=person_name,
+        )
+        return records[0]["person_exists"]
+
+
 def connection_between_people(first_person_name: str, second_person_name: str):
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         are_colleagues = """

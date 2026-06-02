@@ -39,15 +39,16 @@ Press `Ctrl+C` or cancel a prompt to return to the main menu.
 Install Docker Desktop or Docker Engine with the Compose plugin. Then run:
 
 ```sh
-docker compose run --rm app
+docker compose run --build --rm app
 ```
 
-Compose builds the Python app, starts an internal Neo4j service, waits until the
-database is ready, and opens the interactive menu. Neo4j data is stored in the
-`neo4j_data` Docker volume and remains available between runs. The database is
-not exposed on host ports, so it does not conflict with other local services.
-On the first run, the app automatically loads the sample university graph.
-Later runs preserve any changes stored in the volume.
+The `--build` flag ensures that local Python changes are included in the app
+image before it starts. Compose starts an internal Neo4j service, waits until
+the database is ready, and opens the interactive menu. Neo4j data is stored in
+the `neo4j_data` Docker volume and remains available between runs. The database
+is not exposed on host ports, so it does not conflict with other local
+services. On the first run, the app automatically loads the sample university
+graph. Later runs preserve any changes stored in the volume.
 
 Use `Reset database` from the basic-actions menu to delete all current data and
 restore the sample graph.

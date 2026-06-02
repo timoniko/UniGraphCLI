@@ -19,6 +19,7 @@ from db import (
     remove_relationship,
     grade_student,
     search_lecture,
+    person_exists,
     connection_between_people,
     get_paths_between_nodes,
     reset_database,
@@ -456,7 +457,15 @@ def proceed_with_grading_student():
 
 def proceed_with_searching_connection_between_people():
     name_of_first_person = questionary.text("What is the name of the first person?").ask()
+    if not person_exists(name_of_first_person):
+        console.log(f"\n[red]No person named {name_of_first_person} found![/red]")
+        return
+
     name_of_second_person = questionary.text("What is the name of the second person?").ask()
+    if not person_exists(name_of_second_person):
+        console.log(f"\n[red]No person named {name_of_second_person} found![/red]")
+        return
+
     connection = connection_between_people(name_of_first_person, name_of_second_person)
     if not connection:
         console.log(f"\n[yellow]Looks like {name_of_first_person} "
@@ -611,7 +620,6 @@ def get_internal_id_based_on_candidates(mode: Literal["first", "second"]):
         return str(internal_id) if internal_id else None
     else:
         return None
-
 
 
 
