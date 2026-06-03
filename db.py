@@ -283,6 +283,39 @@ def get_student_by_matr_number(matr_number):
             "matr_number": record["matr_number"],
         }
 
+
+def get_registered_exams_for_student(matr_number):
+    with GraphDatabase.driver(uri, auth=AUTH) as driver:
+        query = """
+        MATCH (s:Student {matriculationNumber: $matr_number})
+              -[:REGISTERS]->(e:Exam)<-[:HAS_EXAM]-(l:Lecture)
+        OPTIONAL MATCH (s)-[g:HAS_GRADE]->(e)
+        RETURN elementId(l) AS lecture_internal_id,
+               l.id AS lecture_id,
+               l.topic AS lecture_topic,
+               elementId(e) AS exam_id,
+               e.date AS exam_date,
+               e.note AS exam_note,
+               e.room AS exam_room,
+               g.grade AS grade
+        ORDER BY l.topic ASC, e.date ASC, e.room ASC
+        """
+        records, _, _ = driver.execute_query(query, matr_number=matr_number)
+        return [
+            {
+                "lecture_internal_id": record["lecture_internal_id"],
+                "lecture_id": record["lecture_id"],
+                "lecture_topic": record["lecture_topic"],
+                "exam_id": record["exam_id"],
+                "exam_date": record["exam_date"],
+                "exam_note": record["exam_note"],
+                "exam_room": record["exam_room"],
+                "grade": record["grade"],
+            }
+            for record in records
+        ]
+
+
 def get_lecture_by_number(lecture_number):
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         query = """
@@ -340,10 +373,6 @@ class StudentNotRegistered(Exception):
     pass
 
 
-class AlreadyGraded(Exception):
-    pass
-
-
 def grade_student(matriculation_number: str, exam_id: str, grade: int):
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         check_registered_query = """
@@ -363,33 +392,18 @@ def grade_student(matriculation_number: str, exam_id: str, grade: int):
         if not records:
             raise StudentNotRegistered
 
-        check_grade_query = """
-        MATCH (s:Student {matriculationNumber: $matriculation_number})
-        MATCH (e:Exam)
-        WHERE elementId(e) = $exam_id
-        MATCH (s)-[r:HAS_GRADE]->(e)
-        RETURN r
-        """
-
-        records, _, _ = driver.execute_query(
-            check_grade_query,
-            matriculation_number=matriculation_number,
-            exam_id=exam_id,
-        )
-
-        if records:
-            raise AlreadyGraded
-
-        create_grade_query = """
+        save_grade_query = """
         MATCH (s:Student {matriculationNumber:$matriculation_number})
         MATCH (e:Exam)
         WHERE elementId(e) = $exam_id
-        CREATE (s)-[r:HAS_GRADE {grade:$grade}]->(e)
-        RETURN elementId(r) AS id, r.grade AS grade
+        MERGE (s)-[r:HAS_GRADE]->(e)
+        WITH r, r.grade AS previous_grade
+        SET r.grade = $grade
+        RETURN elementId(r) AS id, r.grade AS grade, previous_grade
         """
 
         records, _, _ = driver.execute_query(
-            create_grade_query,
+            save_grade_query,
             matriculation_number=matriculation_number,
             exam_id=exam_id,
             grade=grade,
@@ -403,6 +417,7 @@ def grade_student(matriculation_number: str, exam_id: str, grade: int):
         return {
             "id": record["id"],
             "grade": record["grade"],
+            "previous_grade": record["previous_grade"],
         }
 
 

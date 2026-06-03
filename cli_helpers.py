@@ -14,6 +14,7 @@ from db import (
     add_delete_notification,
     get_all_lecture_participants,
     get_student_by_matr_number,
+    get_registered_exams_for_student,
     get_lecture_by_number,
     get_lectures_by_name,
     remove_relationship,
@@ -24,7 +25,6 @@ from db import (
     get_paths_between_nodes,
     reset_database,
     StudentNotRegistered,
-    AlreadyGraded,
 )
 from rich.console import Console
 from rich.table import Table
@@ -459,16 +459,76 @@ def proceed_with_grading_student():
     student = get_student_by_matr_number(matr_number)
     if not student:
         console.log("\n[red]No student with this matriculation number![/red]")
-    else:
-        exam_id = questionary.text("What is the exam's id?", validate=valid_field).ask()
-        grade = questionary.text("What is the grade for the exam?", validate=valid_field).ask()
-        try:
-            grade_student(matr_number, exam_id, grade)
-            console.log(f"\n[green]Successfully graded {student['name']} for exam {exam_id}![/green]!")
-        except StudentNotRegistered:
-            console.log("\n[red]Student not registered for exam![/red]")
-        except AlreadyGraded:
-            console.log("\n[yellow]This student is already graded for this exam![/yellow]")
+        return
+
+    registered_exams = get_registered_exams_for_student(matr_number)
+    if not registered_exams:
+        console.log(f"\n[yellow]{student['name']} is not registered for any exams![/yellow]")
+        return
+
+    lecture_choices = []
+    lectures_by_id = {}
+    for exam in registered_exams:
+        lecture_id = exam["lecture_internal_id"]
+        lectures_by_id.setdefault(lecture_id, []).append(exam)
+
+    for lecture_id, exams in lectures_by_id.items():
+        first_exam = exams[0]
+        lecture_choices.append(
+            Choice(
+                title=(
+                    f"{first_exam['lecture_topic']} "
+                    f"({first_exam['lecture_id']}) - {len(exams)} exam(s)"
+                ),
+                value=lecture_id,
+            )
+        )
+
+    selected_lecture_id = questionary.select(
+        "Choose subject:",
+        choices=lecture_choices,
+    ).ask()
+
+    exams_for_lecture = lectures_by_id[selected_lecture_id]
+    selected_exam = questionary.select(
+        "Choose exam:",
+        choices=[
+            Choice(
+                title=format_registered_exam_choice(exam),
+                value=exam,
+            )
+            for exam in exams_for_lecture
+        ],
+    ).ask()
+
+    grade = questionary.text("What is the grade for the exam?", validate=valid_field).ask()
+    try:
+        result = grade_student(matr_number, selected_exam["exam_id"], grade)
+        if result["previous_grade"] is not None:
+            console.log(
+                f"\n[green]Replaced {student['name']}'s grade for "
+                f"{selected_exam['lecture_topic']} exam on {selected_exam['exam_date']} "
+                f"from {result['previous_grade']} to {result['grade']}![/green]"
+            )
+            return
+
+        console.log(
+            f"\n[green]Successfully graded {student['name']} for "
+            f"{selected_exam['lecture_topic']} exam on {selected_exam['exam_date']}![/green]"
+        )
+    except StudentNotRegistered:
+        console.log("\n[red]Student not registered for exam![/red]")
+
+
+def format_registered_exam_choice(exam):
+    details = [str(exam["exam_date"])]
+    if exam.get("exam_room"):
+        details.append(f"room: {exam['exam_room']}")
+    if exam.get("exam_note"):
+        details.append(str(exam["exam_note"]))
+    if exam.get("grade") is not None:
+        details.append(f"already graded: {exam['grade']}")
+    return " | ".join(details)
 
 
 def proceed_with_searching_connection_between_people():
@@ -636,9 +696,6 @@ def get_internal_id_based_on_candidates(mode: Literal["first", "second"]):
         return str(internal_id) if internal_id else None
     else:
         return None
-
-
-
 
 
 
