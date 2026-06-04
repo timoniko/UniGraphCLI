@@ -36,7 +36,7 @@ Press `Ctrl+C` or cancel a prompt to return to the main menu.
 
 ## Run with Docker
 
-Install Docker Desktop or Docker Engine with the Compose plugin. Then run:
+Run:
 
 ```sh
 docker compose run --build --rm app

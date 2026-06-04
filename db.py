@@ -16,6 +16,20 @@ SEED_QUERY_PATH = Path(__file__).with_name("seed_database.cypher")
 
 labels = Literal["Lecture", "Professor", "Student", "Exam"]
 relationships = Literal["EXAMINES", "HAS_EXAM", "HAS_GRADE", "HEARS", "REGISTERS", "TEACHES"]
+VALID_LABELS = frozenset(get_args(labels))
+VALID_RELATIONSHIPS = frozenset(get_args(relationships))
+
+
+def validate_label(label: str):
+    if label not in VALID_LABELS:
+        raise ValueError(f"Unsupported node label: {label}")
+    return label
+
+
+def validate_relationship(relationship: str):
+    if relationship not in VALID_RELATIONSHIPS:
+        raise ValueError(f"Unsupported relationship type: {relationship}")
+    return relationship
 
 
 def load_seed_query():
@@ -59,12 +73,15 @@ def get_nodes(label: labels | None = None):
         if label is None:
             query = "MATCH (n) RETURN elementId(n) AS internal_id, labels(n) AS labels, n"
         else:
+            label = validate_label(label)
             query = f"MATCH (n:{label}) RETURN elementId(n) AS internal_id, labels(n) AS labels, n"
         records, summary, _ = driver.execute_query(query)
         return records
 
 
 def add_node(label: labels, payload: dict):
+    label = validate_label(label)
+
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         query = f"""
         CREATE (n:{label})
@@ -104,6 +121,7 @@ def delete_node_by_id(node_id: str):
 def delete_node_by_properties(label: labels, properties: dict):
     if not properties:
         raise ValueError("Properties cannot be empty")
+    label = validate_label(label)
 
     query = f"""
     MATCH (n:{label})
@@ -137,8 +155,7 @@ def form_relationship(source_node_id: str,
                       destination_node_id: str,
                       relationship: relationships,
                       relationship_props: dict | None):
-    if relationship not in get_args(relationships):
-        raise ValueError(f"Unsupported relationship type: {relationship}")
+    relationship = validate_relationship(relationship)
 
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         query = f"""
@@ -157,8 +174,7 @@ def form_relationship(source_node_id: str,
         }
 
 def remove_relationship(source_id: str, destination_id: str, relationship: relationships):
-    if relationship not in get_args(relationships):
-        raise ValueError(f"Unsupported relationship type: {relationship}")
+    relationship = validate_relationship(relationship)
 
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         query = f"""
@@ -182,12 +198,12 @@ def remove_relationship(source_id: str, destination_id: str, relationship: relat
 def get_relationships(r_type: relationships | None,
                       from_label: labels | None,
                       to_label: labels | None,):
-    if r_type is not None and r_type not in get_args(relationships):
-        raise ValueError(f"Unsupported relationship type: {r_type}")
-    if from_label is not None and from_label not in get_args(labels):
-        raise ValueError(f"Unsupported source label: {from_label}")
-    if to_label is not None and to_label not in get_args(labels):
-        raise ValueError(f"Unsupported destination label: {to_label}")
+    if r_type is not None:
+        r_type = validate_relationship(r_type)
+    if from_label is not None:
+        from_label = validate_label(from_label)
+    if to_label is not None:
+        to_label = validate_label(to_label)
 
     with GraphDatabase.driver(uri, auth=AUTH) as driver:
         source_pattern = f"(a:{from_label})" if from_label else "(a)"

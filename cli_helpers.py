@@ -140,6 +140,17 @@ def construct_node_payload_with_action(node_type, action: Literal["add", "delete
         kwargs = {"validate": validator} if validator else {}
         payload[field["key"]] = questionary.text(field["prompt"], **kwargs).ask()
 
+    if action == "add" and node_type == "Student":
+        matriculation_number = payload["matriculationNumber"]
+        existing_student = get_student_by_matr_number(matriculation_number)
+        if existing_student:
+            console.print(
+                "\n[red]Student with matriculation number "
+                f"{matriculation_number} already exists: "
+                f"{existing_student['name']}.[/red]"
+            )
+            return
+
     summary = ", ".join([f"{k}: {v}" for k, v in payload.items()])
     confirmed = questionary.confirm(
         f"{action.capitalize()} {node_type} with data: ({summary})?"
