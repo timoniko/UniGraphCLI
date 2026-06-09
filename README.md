@@ -1,6 +1,6 @@
 # University Graph CLI
 
-This is an interactive Python CLI backed by Neo4j. It manages a sample
+This is an interactive Python CLI powered by Neo4j. It manages a sample
 university graph containing students, professors, lectures, and exams.
 
 ## Functionality
